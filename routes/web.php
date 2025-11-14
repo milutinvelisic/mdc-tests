@@ -14,6 +14,12 @@ Route::get('/', function() {
     return redirect()->route('login');
 });
 
+Route::get('email', function () {
+    Mail::raw('Test email body', function ($msg) {
+        $msg->to('mvelisic@gmail.com')->subject('Hello!');
+    });
+});
+
 Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 Route::post('/login', [AuthController::class, 'login'])->name('login.user');

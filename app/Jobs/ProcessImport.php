@@ -2,6 +2,8 @@
 
 namespace App\Jobs;
 
+use App\Events\ImportFailed;
+use App\ImportStatus;
 use App\Mail\ImportFailedMail;
 use App\Models\User;
 use App\Notifications\ImportFinishedNotification;
@@ -49,14 +51,28 @@ class ProcessImport implements ShouldQueue
         $engine = new ImportService($context);
         $errors = $engine->processRows($rows);
 
+        $user = User::where('id', $import->user_id)->first();
+
         if ($errors > 0) {
+            $message = "{$errors} rows failed validation";
             DB::table('imports')->where('id', $this->importId)->update([
                 'status' => 'failed',
-                'message' => "{$errors} rows failed validation",
+                'message' => $message,
                 'updated_at' => now()
             ]);
 
-//            Mail::send(new ImportFailedMail($import));
+            ImportFailed::dispatch($import, $message);
+
+            Notification::send(
+                $user,
+                new ImportFinishedNotification(
+                    $import->id,
+                    $import->import_type,
+                    $import->file_key,
+                    ImportStatus::FAILED,
+                    ImportStatus::ERROR_MESSAGE
+                )
+            );
         } else {
             DB::table('imports')->where('id', $this->importId)->update([
                 'status' => 'completed',
@@ -64,15 +80,14 @@ class ProcessImport implements ShouldQueue
                 'updated_at' => now()
             ]);
 
-            $user = User::where('id', $import->user_id)->first();
             Notification::send(
                 $user,
                 new ImportFinishedNotification(
                     $import->id,
                     $import->import_type,
                     $import->file_key,
-                    'completed',
-                    'Successful import'
+                    ImportStatus::COMPLETED,
+                    ImportStatus::SUCCESSFUL_MESSAGE
                 )
             );
         }
