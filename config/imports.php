@@ -91,42 +91,88 @@ return [
         ]
     ],
 
-    // Example of a second import type
     'inventory' => [
         'label' => 'Import Inventory',
         'permission_required' => 'import-inventory',
         'files' => [
             'file1' => [
-                'label' => 'Inventory File',
+                'label' => 'File 1',
                 'headers_to_db' => [
-                    'sku' => ['label' => 'SKU','type'=>'string','validation'=>['required','exists','exists_in'=>['table'=>'products','column'=>'sku']]],
-                    'quantity' => ['label' => 'Quantity','type'=>'integer','validation'=>['required']],
+                    'sku' =>
+                        [
+                            'label' => 'SKU',
+                            'type' => 'string','
+                            validation' => [
+                                'required',
+                                'exists',
+                                'exists_in' => [
+                                    'table' => 'products',
+                                    'column' => 'sku'
+                                ]
+                            ]
+                        ],
+                    'quantity' => [
+                        'label' => 'Quantity',
+                        'type' => 'integer',
+                        'validation' => [
+                            'required',
+                        ]
+                    ],
                 ],
-                'update_or_create' => ['sku']
+                'update_or_create' => [
+                    'sku',
+                ]
             ]
         ]
     ],
 
-    // Third import type, with 2 files
     'shipment' => [
         'label' => 'Import Shipments',
         'permission_required' => 'import-shipments',
         'files' => [
             'file1' => [
-                'label' => 'Shipments File 1',
+                'label' => 'File 1',
                 'headers_to_db' => [
-                    'shipment_id'=>['label'=>'Shipment ID','type'=>'string','validation'=>['required','unique'=>'shipments,shipment_id']],
-                    'carrier'=>['label'=>'Carrier','type'=>'string','validation'=>['required']],
+                    'shipment_id' => [
+                        'label' => 'Shipment ID',
+                        'type' => 'string',
+                        'validation' => [
+                            'required',
+                            'unique' => 'shipments,shipment_id'
+                        ]
+                    ],
+                    'carrier' => [
+                        'label' => 'Carrier',
+                        'type' => 'string',
+                        'validation' => [
+                            'required'
+                        ]
+                    ],
                 ],
-                'update_or_create' => ['shipment_id']
+                'update_or_create' => [
+                    'shipment_id'
+                ]
             ],
             'file2' => [
-                'label' => 'Shipments File 2',
+                'label' => 'File 2',
                 'headers_to_db' => [
-                    'shipment_id'=>['label'=>'Shipment ID','type'=>'string','validation'=>['required']],
-                    'tracking_number'=>['label'=>'Tracking','type'=>'string','validation'=>['required','unique'=>'shipment_trackings,tracking_number']],
+                    'shipment_id' => [
+                        'label' => 'Shipment ID',
+                        'type' => 'string',
+                        'validation' => [
+                            'required'
+                        ]
+                    ],
+                    'tracking_number' => [
+                        'label' => 'Tracking',
+                        'type' => 'string',
+                        'validation' => [
+                            'required',
+                            'unique' => 'shipment_file2,tracking_number']],
                 ],
-                'update_or_create' => ['tracking_number']
+                'update_or_create' => [
+                    'tracking_number'
+                ]
             ]
         ]
     ]
