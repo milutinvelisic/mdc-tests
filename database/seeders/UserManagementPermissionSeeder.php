@@ -33,6 +33,18 @@ class UserManagementPermissionSeeder extends Seeder
                 'created_at' => now(),
                 'updated_at' => now(),
             ],
+            [
+                'name' => 'import-inventory',
+                'description' => 'Import Inventory functionality',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'name' => 'import-shipments',
+                'description' => 'Import Shipments functionality',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
         ];
 
         foreach ($permissions as $permission) {
