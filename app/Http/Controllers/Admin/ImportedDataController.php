@@ -27,19 +27,29 @@ class ImportedDataController extends Controller
 
     public function show($importType, $fileKey, Request $request)
     {
-        [$table, $columns, $cfg] = $this->getTableAndHeadersColumnsAndConfig($importType, $fileKey);
+        [$table, $columns, $cfg, $permission] = $this->getTableAndHeadersColumnsAndConfigAndPermission($importType, $fileKey);
 
         $data = $this->importRepository->getPaginatedRows($table, $columns, $request->query('search'), 20);
         $auditFields = $cfg['update_or_create'] ?? [];
 
         $rowAudits = $this->importRepository->getRowAudits($table, $data->pluck('id')->toArray(), $auditFields);
 
-        return view('imported.show', compact('data', 'columns', 'importType', 'fileKey', 'cfg', 'rowAudits', 'auditFields'));
+        return view('imported.show', compact(
+            'data',
+            'columns',
+                'importType',
+                'fileKey',
+                'cfg',
+                'rowAudits',
+                'auditFields',
+                'permission',
+            )
+        );
     }
 
     public function export($importType, $fileKey, Request $request)
     {
-        [$table, $columns] = $this->getTableAndHeadersColumnsAndConfig($importType, $fileKey);
+        [$table, $columns] = $this->getTableAndHeadersColumnsAndConfigAndPermission($importType, $fileKey);
         $rows = $this->importRepository->getRows($table, $columns, $request->query('search'));
 
         $extension = $this->exporter->getExtension();
@@ -65,12 +75,13 @@ class ImportedDataController extends Controller
         return view('imported.audits', compact('audits'));
     }
 
-    private function getTableAndHeadersColumnsAndConfig($importType, $fileKey)
+    private function getTableAndHeadersColumnsAndConfigAndPermission($importType, $fileKey)
     {
         $cfg = config("imports.{$importType}.files.{$fileKey}") ?? abort(404);
         $table = "{$importType}_{$fileKey}";
         $columns = array_keys($cfg['headers_to_db']);
+        $permission = config("imports.{$importType}")['permission_required'];
 
-        return [$table, $columns, $cfg];
+        return [$table, $columns, $cfg, $permission];
     }
 }

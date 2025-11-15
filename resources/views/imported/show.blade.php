@@ -59,16 +59,21 @@
                                 </button>
                             @endif
 
-                            {{-- Delete Row --}}
-                            <form action="{{ route('admin.imported.deleteRow', [$importType,$fileKey,$row->id]) }}"
-                                  method="POST" style="display:inline-block;"
-                                  onsubmit="return confirm('Delete this row?')">
-                                @csrf
-                                @method('DELETE')
-                                <button class="btn btn-danger btn-xs">
-                                    <i class="fa fa-trash"></i> Delete
-                                </button>
-                            </form>
+                            @php
+                                $perm = $permission ?? null;
+                            @endphp
+
+                            @if($perm && auth()->user()->can($perm))
+                                <form action="{{ route('admin.imported.deleteRow', [$importType,$fileKey,$row->id]) }}"
+                                      method="POST" style="display:inline-block;"
+                                      onsubmit="return confirm('Delete this row?')">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button class="btn btn-danger btn-xs">
+                                        <i class="fa fa-trash"></i> Delete
+                                    </button>
+                                </form>
+                            @endif
                         </td>
                     </tr>
                 @endforeach
