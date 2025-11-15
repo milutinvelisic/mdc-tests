@@ -2,22 +2,21 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Interfaces\ExporterInterface;
 use App\Repositories\ImportRepository;
-use App\Services\Export\CsvExporter;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Maatwebsite\Excel\Facades\Excel;
-use Symfony\Component\HttpFoundation\StreamedResponse;
 use App\Http\Controllers\Controller;
 
 class ImportedDataController extends Controller
 {
     private ImportRepository $importRepository;
-    private CsvExporter $csvExporter;
-    public function __construct()
+    private ExporterInterface $exporter;
+
+    public function __construct(ImportRepository $importRepository, ExporterInterface $exporter)
     {
-        $this->importRepository = new ImportRepository();
-        $this->csvExporter = new CsvExporter();
+        $this->importRepository = $importRepository;
+        $this->exporter = $exporter;
     }
     public function index()
     {
@@ -29,19 +28,9 @@ class ImportedDataController extends Controller
     {
         [$table, $columns, $cfg] = $this->getTableAndHeadersColumnsAndConfig($importType, $fileKey);
 
-        $q = DB::table($table);
+        $data = $this->importRepository->getPaginatedRows($table, $columns, $request->query('search'), 20);
 
-        if ($search = $request->query('search')) {
-            $q->where(function($sub) use ($columns, $search) {
-                foreach ($columns as $col) {
-                    $sub->orWhere($col, 'like', "%{$search}%");
-                }
-            });
-        }
-
-        $data = $q->paginate(20)->appends($request->query());
-
-        return view('imported.show', compact('data','columns','importType','fileKey','cfg'));
+        return view('imported.show', compact('data', 'columns', 'importType', 'fileKey', 'cfg'));
     }
 
     public function export($importType, $fileKey, Request $request)
@@ -49,34 +38,26 @@ class ImportedDataController extends Controller
         [$table, $columns] = $this->getTableAndHeadersColumnsAndConfig($importType, $fileKey);
         $rows = $this->importRepository->getRows($table, $columns, $request->query('search'));
 
-        $filename = "{$importType}_{$fileKey}_export_".date('Ymd_His').".csv";
+        $extension = $this->exporter->getExtension();
+        $filename = "{$importType}_{$fileKey}_export_" . date('Ymd_His') . ".{$extension}";
 
-        return response()->stream(function() use ($rows, $columns) {
-            $this->csvExporter->export($rows, $columns);
-        }, 200, [
-            'Content-Type' => 'text/csv',
-            'Content-Disposition' => "attachment; filename=\"{$filename}\""
-        ]);
+        $data = $rows->map(function($row) use ($columns) {
+            return array_map(fn($c) => $row->{$c} ?? null, $columns);
+        })->toArray();
+
+        return $this->exporter->toStream($columns, $data, $filename);
     }
 
     public function deleteRow($importType, $fileKey, $id, Request $request)
     {
-        $cfg = config("imports.{$importType}");
-        $perm = $cfg['permission_required'] ?? null;
-        if ($perm && !$request->user()->can($perm)) {
-            abort(403);
-        }
-
-        $table = "{$importType}_{$fileKey}";
-        DB::table($table)->where('id', $id)->delete();
+        $this->importRepository->deleteRow($importType, $fileKey, $id, $request->user());
 
         return back()->with('status','Row deleted');
     }
 
     public function audits($importType, $fileKey, $rowId)
     {
-        $table = "{$importType}_{$fileKey}";
-        $audits = DB::table('import_audits')->where('table_name', $table)->where('row_id', $rowId)->get();
+        $audits = $this->importRepository->getAudits($importType, $fileKey, $rowId);
         return view('imported.audits', compact('audits'));
     }
 

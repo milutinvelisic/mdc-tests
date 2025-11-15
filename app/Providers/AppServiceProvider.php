@@ -2,6 +2,9 @@
 
 namespace App\Providers;
 
+use App\Interfaces\ExporterInterface;
+use App\Services\Export\CsvExporter;
+use App\Services\Export\XlsxExporter;
 use Illuminate\Pagination\Paginator;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Event;
@@ -14,7 +17,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+//        $this->app->bind(ExporterInterface::class, XlsxExporter::class);
+        $this->app->bind(ExporterInterface::class, CsvExporter::class);
     }
 
     /**
