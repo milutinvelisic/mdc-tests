@@ -9,8 +9,11 @@ use App\Notifications\ImportStartedNotification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
 use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\Reader\Xls;
+use PhpOffice\PhpSpreadsheet\Reader\Xlsx;
 
 class DataImportController
 {
@@ -61,8 +64,11 @@ class DataImportController
                 return back()->withErrors('Unsupported file type');
             }
 
-            $requiredHeaders = array_keys($cfg['headers_to_db'] ?? []);
-            $fileHeaders = $this->getHeadersFromFile($file); // helper function
+            $requiredHeaders = array_map(
+                fn($col) => strtolower($col['label'] ?? ''),
+                $cfg['headers_to_db'] ?? []
+            );
+            $fileHeaders = $this->getHeadersFromFile($file);
             $missing = array_diff($requiredHeaders, $fileHeaders);
 
             if (!empty($missing)) {
@@ -91,22 +97,47 @@ class DataImportController
             ->with('success','Import is in progress. You will be notified when complete.');
     }
 
-    private function getHeadersFromFile($file) {
+    private function getHeadersFromFile($file): array
+    {
         $ext = strtolower($file->getClientOriginalExtension());
 
-        if (in_array($ext, ['csv', 'txt'])) {
-            $handle = fopen($file->getRealPath(), 'r');
-            $headers = fgetcsv($handle, 0, ',') ?: [];
-            fclose($handle);
-            return array_map('trim', $headers);
-        }
+        try {
+            if (in_array($ext, ['xls', 'xlsx'])) {
+                $reader = match($ext) {
+                    'xls' => new Xls(),
+                    'xlsx' => new Xlsx(),
+                };
 
-        if (in_array($ext, ['xls', 'xlsx'])) {
-            $reader = IOFactory::createReaderForFile($file->getRealPath());
-            $sheet = $reader->load($file->getRealPath())->getActiveSheet();
-            $rows = $sheet->toArray(null, true, true, true);
-            $firstRow = array_values($rows[1] ?? []);
-            return array_map('trim', $firstRow);
+                $reader->setReadDataOnly(true);
+
+                $spreadsheet = $reader->load($file->getRealPath());
+
+                if ($spreadsheet->getSheetCount() === 0) return [];
+
+                $sheet = $spreadsheet->getSheet(0);
+
+                $firstRow = $sheet->rangeToArray(
+                    'A1:' . $sheet->getHighestColumn() . '1',
+                    null,
+                    true,
+                    true,
+                    true
+                )[1] ?? [];
+
+                return array_map(fn($h) => strtolower(trim($h)), array_values($firstRow));
+            }
+
+            if (in_array($ext, ['csv', 'txt'])) {
+                $handle = fopen($file->getRealPath(), 'r');
+                $headers = fgetcsv($handle, 0, ',') ?: [];
+                fclose($handle);
+
+                return array_map(fn($h) => strtolower(trim($h)), $headers);
+            }
+
+        } catch (\Exception $e) {
+            Log::error($e->getMessage());
+            return [];
         }
 
         return [];
