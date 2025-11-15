@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Repositories\ImportRepository;
+use App\Services\Export\CsvExporter;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Maatwebsite\Excel\Facades\Excel;
@@ -10,18 +12,22 @@ use App\Http\Controllers\Controller;
 
 class ImportedDataController extends Controller
 {
+    private ImportRepository $importRepository;
+    private CsvExporter $csvExporter;
+    public function __construct()
+    {
+        $this->importRepository = new ImportRepository();
+        $this->csvExporter = new CsvExporter();
+    }
     public function index()
     {
-        // List all import types and file keys
-        $all = config('imports');
-        return view('imported.index', ['imports' => $all]);
+        $imports = config('imports');
+        return view('imported.index', ['imports' => $imports]);
     }
 
     public function show($importType, $fileKey, Request $request)
     {
-        $cfg = config("imports.{$importType}.files.{$fileKey}") ?? abort(404);
-        $table = "{$importType}_{$fileKey}";
-        $columns = array_keys($cfg['headers_to_db']);
+        [$table, $columns, $cfg] = $this->getTableAndHeadersColumnsAndConfig($importType, $fileKey);
 
         $q = DB::table($table);
 
@@ -40,39 +46,17 @@ class ImportedDataController extends Controller
 
     public function export($importType, $fileKey, Request $request)
     {
-        $cfg = config("imports.{$importType}.files.{$fileKey}") ?? abort(404);
-        $table = "{$importType}_{$fileKey}";
-        $columns = array_keys($cfg['headers_to_db']);
+        [$table, $columns] = $this->getTableAndHeadersColumnsAndConfig($importType, $fileKey);
+        $rows = $this->importRepository->getRows($table, $columns, $request->query('search'));
 
-        $q = DB::table($table);
-
-        if ($search = $request->query('search')) {
-            $q->where(function($sub) use ($columns, $search) {
-                foreach ($columns as $col) {
-                    $sub->orWhere($col, 'like', "%{$search}%");
-                }
-            });
-        }
-
-        $rows = $q->get();
-
-        // simple CSV streamed response to avoid dependency
         $filename = "{$importType}_{$fileKey}_export_".date('Ymd_His').".csv";
-        $response = new StreamedResponse(function() use ($rows, $columns) {
-            $out = fopen('php://output','w');
-            // headers
-            fputcsv($out, $columns);
-            foreach ($rows as $r) {
-                $line = [];
-                foreach ($columns as $c) $line[] = $r->{$c} ?? null;
-                fputcsv($out, $line);
-            }
-            fclose($out);
-        });
 
-        $response->headers->set('Content-Type','text/csv');
-        $response->headers->set('Content-Disposition','attachment; filename="'.$filename.'"');
-        return $response;
+        return response()->stream(function() use ($rows, $columns) {
+            $this->csvExporter->export($rows, $columns);
+        }, 200, [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => "attachment; filename=\"{$filename}\""
+        ]);
     }
 
     public function deleteRow($importType, $fileKey, $id, Request $request)
@@ -94,5 +78,14 @@ class ImportedDataController extends Controller
         $table = "{$importType}_{$fileKey}";
         $audits = DB::table('import_audits')->where('table_name', $table)->where('row_id', $rowId)->get();
         return view('imported.audits', compact('audits'));
+    }
+
+    private function getTableAndHeadersColumnsAndConfig($importType, $fileKey)
+    {
+        $cfg = config("imports.{$importType}.files.{$fileKey}") ?? abort(404);
+        $table = "{$importType}_{$fileKey}";
+        $columns = array_keys($cfg['headers_to_db']);
+
+        return [$table, $columns, $cfg];
     }
 }
