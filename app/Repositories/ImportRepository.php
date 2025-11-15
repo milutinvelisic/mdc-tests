@@ -37,6 +37,20 @@ class ImportRepository
         return $query->paginate($perPage)->appends(request()->query());
     }
 
+    public function getRowAudits(string $table, array $rowIds, array $columns): Collection
+    {
+        if (empty($rowIds) || empty($columns)) {
+            return collect();
+        }
+
+        return DB::table('import_audits')
+            ->where('table_name', $table)
+            ->whereIn('row_id', $rowIds)
+            ->whereIn('column_key', $columns)
+            ->get()
+            ->groupBy('row_id');
+    }
+
     public function deleteRow(string $importType, string $fileKey, int $id, $user): void
     {
         $cfg = config("imports.{$importType}");

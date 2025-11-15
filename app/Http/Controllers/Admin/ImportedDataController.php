@@ -7,6 +7,7 @@ use App\Repositories\ImportRepository;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
+use Illuminate\Support\Facades\Log;
 
 class ImportedDataController extends Controller
 {
@@ -29,8 +30,11 @@ class ImportedDataController extends Controller
         [$table, $columns, $cfg] = $this->getTableAndHeadersColumnsAndConfig($importType, $fileKey);
 
         $data = $this->importRepository->getPaginatedRows($table, $columns, $request->query('search'), 20);
+        $auditFields = $cfg['update_or_create'] ?? [];
 
-        return view('imported.show', compact('data', 'columns', 'importType', 'fileKey', 'cfg'));
+        $rowAudits = $this->importRepository->getRowAudits($table, $data->pluck('id')->toArray(), $auditFields);
+
+        return view('imported.show', compact('data', 'columns', 'importType', 'fileKey', 'cfg', 'rowAudits', 'auditFields'));
     }
 
     public function export($importType, $fileKey, Request $request)

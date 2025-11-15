@@ -12,15 +12,14 @@
 @endsection
 
 @section('content')
-
     <div class="box">
         <div class="box-header with-border">
             <h3 class="box-title">View Imported Records</h3>
         </div>
 
         <div class="box-body">
-
-            <form class="form-inline" method="GET">
+            {{-- Filter + Export --}}
+            <form class="form-inline mb-2" method="GET">
                 <div class="form-group">
                     <input type="text" name="search" value="{{ request('search') }}"
                            class="form-control" placeholder="Search all columns...">
@@ -28,18 +27,19 @@
                 <button class="btn btn-primary btn-sm">Filter</button>
 
                 <a href="{{ route('admin.imported.export', [$importType,$fileKey]) . '?search=' . request('search') }}"
-                   class="btn btn-success btn-sm" style="margin-left: 10px;">
+                   class="btn btn-success btn-sm ml-2">
                     <i class="fa fa-file-excel-o"></i> Export
                 </a>
             </form>
 
-            <table class="table table-bordered table-striped" style="margin-top: 15px;">
+            {{-- Data Table --}}
+            <table class="table table-bordered table-striped">
                 <thead>
                 <tr>
                     @foreach($columns as $c)
-                        <th>{{ $cfg['headers_to_db'][$c]['label'] }}</th>
+                        <th>{{ $cfg['headers_to_db'][$c]['label'] ?? $c }}</th>
                     @endforeach
-                    <th style="width:130px;">Actions</th>
+                    <th style="width:150px;">Actions</th>
                 </tr>
                 </thead>
 
@@ -51,14 +51,17 @@
                         @endforeach
 
                         <td>
-                            <a class="btn btn-info btn-xs"
-                               href="{{ route('admin.imported.audits', [$importType,$fileKey,$row->id]) }}">
-                                <i class="fa fa-list"></i> Audits
-                            </a>
+                            {{-- Audits Modal Trigger --}}
+                            @if(!empty($auditFields) && isset($rowAudits[$row->id]))
+                                <button type="button" class="btn btn-info btn-xs" data-toggle="modal"
+                                        data-target="#auditsModal-{{ $row->id }}">
+                                    <i class="fa fa-list"></i> Audits
+                                </button>
+                            @endif
 
+                            {{-- Delete Row --}}
                             <form action="{{ route('admin.imported.deleteRow', [$importType,$fileKey,$row->id]) }}"
-                                  method="POST"
-                                  style="display:inline-block;"
+                                  method="POST" style="display:inline-block;"
                                   onsubmit="return confirm('Delete this row?')">
                                 @csrf
                                 @method('DELETE')
@@ -66,7 +69,6 @@
                                     <i class="fa fa-trash"></i> Delete
                                 </button>
                             </form>
-
                         </td>
                     </tr>
                 @endforeach
@@ -77,7 +79,61 @@
                 {{ $data->links() }}
             </div>
 
+            {{-- Modals (placed outside table) --}}
+            @foreach($data as $row)
+                @if(!empty($auditFields) && isset($rowAudits[$row->id]))
+                    <div class="modal fade" id="auditsModal-{{ $row->id }}" tabindex="-1" role="dialog"
+                         aria-labelledby="auditsModalLabel-{{ $row->id }}" aria-hidden="true">
+                        <div class="modal-dialog modal-lg" role="document">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title" id="auditsModalLabel-{{ $row->id }}">
+                                        Audits for Row #{{ $row->id }}
+                                    </h5>
+                                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                        <span aria-hidden="true">&times;</span>
+                                    </button>
+                                </div>
+                                <div class="modal-body">
+                                    @php
+                                        $auditsForRow = $rowAudits[$row->id] ?? collect();
+                                    @endphp
+
+                                    @if($auditsForRow->isEmpty())
+                                        <p>No audits found for this row.</p>
+                                    @else
+                                        <table class="table table-bordered table-striped">
+                                            <thead>
+                                            <tr>
+                                                <th>Field</th>
+                                                <th>Old Value</th>
+                                                <th>New Value</th>
+                                                <th>Changed At</th>
+                                            </tr>
+                                            </thead>
+                                            <tbody>
+                                            @foreach($auditFields as $field)
+                                                @foreach($auditsForRow->where('column_key', $field) as $audit)
+                                                    <tr>
+                                                        <td>{{ $audit->column_key }}</td>
+                                                        <td>{{ $audit->old_value }}</td>
+                                                        <td>{{ $audit->new_value }}</td>
+                                                        <td>{{ $audit->created_at }}</td>
+                                                    </tr>
+                                                @endforeach
+                                            @endforeach
+                                            </tbody>
+                                        </table>
+                                    @endif
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">Close</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                @endif
+            @endforeach
         </div>
     </div>
-
 @endsection
