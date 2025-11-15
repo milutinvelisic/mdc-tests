@@ -20,7 +20,6 @@
     <form id="data-import-form" action="{{ route('admin.data-import.import') }}" method="POST" enctype="multipart/form-data">
         @csrf
 
-        {{-- Import type dropdown --}}
         <div class="form-group">
             <label for="import_type">Select Import Type</label>
             <select name="import_type" id="import_type" class="form-control" required>
@@ -36,13 +35,11 @@
         <button type="submit" class="btn btn-primary mt-2">Start Import</button>
     </form>
 
-    {{-- JS to dynamically show files for selected import type --}}
     <script>
         const importConfig = @json($importTypes);
 
         document.getElementById('import_type').addEventListener('change', function() {
             const type = this.value;
-            console.log(type)
             const container = document.getElementById('files-container');
             container.innerHTML = '';
 
@@ -54,10 +51,10 @@
                 const div = document.createElement('div');
                 div.classList.add('form-group');
                 div.innerHTML = `
-            <label>${file.label}</label>
-            <input type="file" name="files[${fileKey}]" class="form-control-file" required>
-            <small class="form-text text-muted">Required headers: ${Object.keys(file.headers_to_db).join(', ')}</small>
-        `;
+                <label>${file.label}</label>
+                <input type="file" name="files[${fileKey}]" class="form-control-file">
+                <small class="form-text text-muted">Required headers: ${Object.keys(file.headers_to_db).join(', ')}</small>
+            `;
                 container.appendChild(div);
             });
         });
